@@ -21,7 +21,7 @@ import logging
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
 
 
-data_dir = '/nas/home/nbartley/data/Twitter Bias/Network Data/2014-2015-twitter-seed/indiv_users'
+data_dir = ''
 seeduser = pd.read_csv('{}/../seeduser.csv'.format(data_dir), header=0)
 seeduser['screen_name'] = seeduser['screen_name'].apply(lambda x: x[1:-1])
 
@@ -29,14 +29,14 @@ session_length = 30
 
 lngths = list(np.arange(10,150,10)) + [2000000000]
 split_done = False
-#all_new_popularity_3, all_new_random, all_new_revchron_2
-#random_sample = np.random.choice([user for user in seeduser['user_id'].values], size=500, replace=False)
 random_sample = [user for user in seeduser['user_id'].values]
 
 kind = 'popularity'
 
+gini_tuple_file = '{}/gini_tuple_all_new_{}.pkl'.format(data_dir, kind)
+
 if not split_done:
-    with open('{}/gini_tuple_all_new_random.pkl'.format(data_dir, kind), 'rb') as fp:##with open('{}/gini_tuple_all_new_popularity_3.pkl'.format(data_dir), 'rb') as fp:
+    with open(gini_tuple_file ,'rb') as fp:##with open('{}/gini_tuple_all_new_popularity_3.pkl'.format(data_dir), 'rb') as fp:
         gini_tup = pkl.load(fp)
     #random_sample = list(gini_tup[1].keys())#np.random.choice(list(gini_tup[1].keys()), replace=False, size=1000))
 
@@ -46,7 +46,7 @@ if not split_done:
 '''
 if not split_done:
     for user in random_sample: 
-        with open('{}/activity_dfs_{}_{}_2.pkl'.format(data_dir, kind, user), 'wb') as fp:
+        with open('{}/activity_dfs_{}_{}.pkl'.format(data_dir, kind, user), 'wb') as fp:
             pkl.dump(gini_tup[1][user], fp)
         
     raise Exception('done with code')
@@ -77,12 +77,6 @@ try:
         frac_dict = loaded_pkl[1]
         friends_dict = loaded_pkl[3]
         loaded_dicts = False
-    #with open('{}/frac_friend_dicts_2000_popularity.pkl'.format(data_dir), 'rb') as fp:
-    #    frac_friend_dicts_2000 = pkl.load(fp)
-    #with open('{}/frac_friend_dicts_2000_4000_popularity.pkl'.format(data_dir), 'rb') as fp:
-    #    frac_friend_dicts_2000_4000 = pkl.load(fp)   
-    #with open('{}/frac_friend_dicts_2000_popularity.pkl'.format(data_dir), 'rb') as fp:
-    #    frac_friend_dicts_4000 = pkl.load(fp)
 
 except Exception as e:
     pass
@@ -92,7 +86,6 @@ who_follows_who = pd.read_csv('{}/../usergraph.csv'.format(data_dir), header=0, 
 
 map_friends = who_follows_who[['id', 'tid']].groupby(['id', 'tid']).count().index.tolist()
 idx = pd.IndexSlice
-#map_friends = {tup[0]:[x[1] for x in map_friends if x[0] == tup[0]] for tup in map_friends}
 
 map_friends_2 = {}
 for tup in map_friends:
@@ -138,18 +131,13 @@ vals = rng.binomial(n=1, p=true_prevalence, size=len(total_users))
 user_map = {user:val for user, val in zip(total_users, vals)}
 
 
+
 map_friends_scores = {x:[user_map[y] for y in map_friends[x]] for x in map_friends}
-
-
-
-#gini_dict = gini_tup[0]
 
 
 def job(act_dfs, ginis,  user):
     days_to_keep_dict = {user:{y:[] for y in lngths} }
     
-    #act_dfs = gini_tup[1][user]
-    #ginis = gini_tup[0][user]
     
     for ln, act_mat in zip(lngths, act_dfs):
         days = sorted(ginis[ln].keys())
@@ -162,8 +150,6 @@ def job(act_dfs, ginis,  user):
 
 def corr(x,y, um):
     avg_pos_degree = np.mean([degrees_in[x] for x in um if x in degrees_in])
-    #avg_degree = np.mean(x)
-    #std_deg = np.std(x)
     std_vals = np.std(y)
     p_pos = np.sum(y) / float(len(y))
 
@@ -184,23 +170,8 @@ std_deg = np.std(degree_dist)
 with joblib.parallel_backend(backend="loky"):
     if not loaded_days:
 
-        parallel = Parallel(verbose=100, n_jobs=12, temp_folder="/nas/home/nbartley/data/" )
+        parallel = Parallel(verbose=100, n_jobs=12)
 
-        folder = '{}/joblib_memmap'.format(data_dir)
-        try:
-            os.mkdir(folder)
-        except FileExistsError:
-            pass
-
-        #data_filename_memmap = os.path.join(folder, 'data_memmap')
-        #dump(gini_tup, data_filename_memmap)
-        #gini_tup= load(data_filename_memmap, mmap_mode='r')
-
-
-
-        #for ct_df, ct_df2, user in results:
-        #    ct_df.to_csv('{}/{}.csv'.format(data_dir, user))
-        #    ct_df2.to_csv('{}/{}_activity.csv'.format(data_dir, user))
         print("entering job")
 
         days_to_keep_dicts = parallel(delayed(job)(gini_tup[1][user], gini_tup[0][user], user) for user in random_sample)
@@ -220,76 +191,25 @@ def local_bias(edges, user_map, true_prev, day, G_in, G_out, attn_func = None):
     exp_val = 0.0
     vals = map(lambda x: user_map[x[1]] * attn_func(x) / num_edges, edges)
     exp_val = np.nansum(list(vals))
-    #for edge in edges:
-    #    try:
-    #        val = (user_map[edge[0]] * attn_func(edge)) * (1/num_edges)
-    #    except KeyError as e:
-    #        print(edge, out_deg, in_deg, list(edges))
-    #        raise KeyError
-    #    exp_val += val if not np.isnan(val) else 0.0
-    '''
-    for node in G.nodes():
-        neighbors = G.neighbors(node)
-        num_neighbors = len(neighbors)
-        num_edges_neighbors = 0
-        for neighbor in neighbors:
-            num_edges_neighbors += G.degree(neighbor)
-        local_bias = (num_edges_neighbors - num_neighbors) / (num_edges - num_neighbors)
-        G.node[node]['local_bias'] = local_bias
-    '''
+
     return np.mean(list(dict(in_deg).values())) * exp_val - true_prev
 
-'''
-def local_bias(user_map, edges, true_prev, day, attn_func = None):
-    if attn_func is None:
-        attn_func = lambda edge: (1.0/degrees_out[edge[1]]) if degrees_out[edge[1]] > 0 else 0.0
-    num_edges = len(edges)
-    exp_val = 0.0
-    for edge in edges:
-        try:
-            val = (user_map[edge[0]] * attn_func(edge)) * (1/num_edges)
-        except KeyError as e:
-            raise KeyError
-        exp_val += val if not np.isnan(val) else 0.0
-    ''''''
-    for node in G.nodes():
-        neighbors = G.neighbors(node)
-        num_neighbors = len(neighbors)
-        num_edges_neighbors = 0
-        for neighbor in neighbors:
-            num_edges_neighbors += G.degree(neighbor)
-        local_bias = (num_edges_neighbors - num_neighbors) / (num_edges - num_neighbors)
-        G.node[node]['local_bias'] = local_bias
-    '''
-#    return np.mean(list(degrees_in.values())) * exp_val - true_prev
 
 
 
 print("done with gini loading etc")
 
 
-
-## some over the days
-## any friends who are positive are links 
-## make a dict that are the links 
-
-
-
 np_nonzero = np.nonzero
 np_sum = np.sum
 np_unique = np.unique
-# stack each users act_dfs then get the size of each users and then stack all them 
 
 
 from multiprocessing import current_process
 import time
 print(time.time())
-#print({x:user_map[x] for x in map_friends.loc[idx[12, :]].index.tolist()})
 def job(user_chunk):#(days_list, friends, act_dfs, map_friends, user_map, user):
-    #logger = logging.getLogger()
-    #logger.setLevel(logging.DEBUG)
 
-        #process = current_process()
     frac_dict = {}
     friends_dict = {}
     frac_tweets_dict = {}
@@ -300,23 +220,14 @@ def job(user_chunk):#(days_list, friends, act_dfs, map_friends, user_map, user):
     for user in user_chunk:    
         t0 = time.time()
         try:
-            friends = {x:[] for x in map_friends[user]}#wfw_dict[user]
+            friends = {x:[] for x in map_friends[user]}
             friends_scores = map_friends_scores[user]
         except Exception as e:
             print("no friends for user ", user)
             continue
-            return user, {}, {}, {}#frac_dict, friends_dict, frac_tweets_dict
         #act_dfs =  gini_tup[1][user]
         with open('{}/activity_dfs_{}_{}.pkl'.format(data_dir, kind, user), 'rb') as fp:
             act_dfs = pkl.load(fp)
-
-        #rng = np.random.default_rng()
-        #act_dfs = [df[rng.permutation(np.arange(df.shape[0])),:] for df in act_dfs]
-
-        #for df in act_dfs:
-        #    index = np.arange(df.shape[0])
-        #    np.random.shuffle(index)
-        #    df = df[index,:]
 
         friends_list = np.array(list(friends.keys()))
         
@@ -328,12 +239,11 @@ def job(user_chunk):#(days_list, friends, act_dfs, map_friends, user_map, user):
         
         for friend in friends:
             try:
-                friend_neighbors = map_friends[friend]#map_friends_xs(int(friend), level=0)#map_friends.loc[idx[int(friend),:]].index.tolist()#who_follows_who_mm[who_follows_who_mm['id'] == friend]['tid'].value_counts().index.tolist()
+                friend_neighbors = map_friends[friend]
                 friend_neighbors_scores = map_friends_scores[friend]
             except Exception as e:
                 #print(e)
                 continue
-            #neighbor_pol_scores = [user_map[neighbor] for neighbor in friend_neighbors]
             len_neighbs = float(len(friend_neighbors))
             friends_dict[friend] = sum(friend_neighbors_scores) / len_neighbs if len_neighbs > 0 else -1
         
@@ -353,13 +263,12 @@ def job(user_chunk):#(days_list, friends, act_dfs, map_friends, user_map, user):
         t0 = t1
         
     
-        #local_bias(edges, user_map, true_prev, day, G_in, G_out, attn_func = None)
         
         for length, act_df, act_df_bin in zip(list(np.arange(10,150,10))+[2000000000], act_dfs, [act_df.copy() for act_df in act_dfs]):
             
             local_bias_vals = local_bias(edge_dict[length], user_map, true_prevalence, None, G_in, G_out, attn_func)
 
-            days_list = [x for x in range(act_df.shape[1])]#x for x in gini_dict[user][length]]# if len(x) >0]
+            days_list = [x for x in range(act_df.shape[1])]
             num_days = len(days_list)
             str_len = str(length)
             frac_dict[user][str_len] = []
@@ -370,6 +279,7 @@ def job(user_chunk):#(days_list, friends, act_dfs, map_friends, user_map, user):
             gini_vals = np.array([au.compute_gini(act_df[:,day].astype('float64').todense()) for day in range(act_df.shape[1])])
             bias_vals = np.array([local_bias_vals for day in range(act_df.shape[1])])
             
+            #for shuffling the data to remove degree-attribute correlation
             index = np.arange(np.shape(act_df)[0])
             rng.shuffle(index)
             act_df = act_df[index,:]
@@ -380,16 +290,13 @@ def job(user_chunk):#(days_list, friends, act_dfs, map_friends, user_map, user):
             friends_seen_total = np.asarray(np_nonzero(act_df_bin))
 
             days_gte_10 = (np.sum(act_df, axis=0) >= 10.0).tolist()[0]
-            #print(len(days_gte_10), days_gte_10)
 
-            #friends_seen_subset = [x for x in friends_seen_total[0,:] if x in friends]#f
-            friends_seen_subset = np.unique(friends_seen_total[0,:])#[x in friends for x in friends_seen_total[0,:]]]
+            friends_seen_subset = np.unique(friends_seen_total[0,:])
             friends_seen_sb_list = friends_list[friends_seen_subset]
             fs_tr = [user_map[friend] for friend in friends_seen_sb_list]
             where_fs_eq_1 = np_unique([friend for friend, tr in zip(friends_seen_subset, fs_tr) if tr == 1])
             
-            #print(user, len(where_fs_eq_1), act_df_bin.shape)
-            #print(user, (np.sum(act_df_bin[where_fs_eq_1,:], axis=0) / (np.sum(act_df_bin, axis=0) +1.0)).flatten().tolist(), np.sum(act_df[where_fs_eq_1,:], axis=0) / (np.sum(act_df, axis=0) + 1.0).flatten().tolist() )
+            
             if len(where_fs_eq_1) == 0:
                 sesh_friends_pos_frac = [[0.0] * num_days]
                 sesh_friend_tweets_pos_frac = [[0.0] * num_days]
@@ -406,45 +313,22 @@ def job(user_chunk):#(days_list, friends, act_dfs, map_friends, user_map, user):
 
             
 
-
-
-
             try:
                 sesh_friends_pos_frac = np_sum(act_df_bin[where_fs_eq_1,:][:,days_gte_10], axis=0) / (np_sum(act_df_bin[:,days_gte_10], axis=0) )   # array of length | number_days |
             except ValueError as e:
-                print("hi ", act_df_bin[where_fs_eq_1,days_gte_10].shape,act_df_bin[:,days_gte_10].shape)
                 raise ValueError
             except IndexError as e:
-                #print("hi ", days_gte_10)
                 raise IndexError("hi {}  act_df_bin.size {} len where_fs {} act_bin shape {}".format(days_gte_10, act_df_bin.size, len(where_fs_eq_1), act_df_bin.shape))
             sesh_friend_tweets_pos_frac = np_sum(act_df[where_fs_eq_1,:][:,days_gte_10], axis=0) / (np_sum(act_df[:,days_gte_10], axis=0) )
             
             
-            #print(  act_df.shape, len(days_list), friends_seen_total.shape, fs_subset_tr.shape, sesh_friends_pos_frac.shape, np.mean(sesh_friends_pos_frac), )
             frac_dict[user][str_len].extend(sesh_friends_pos_frac.flatten().tolist())
             frac_tweets_dict[user][str_len].extend(sesh_friend_tweets_pos_frac.flatten().tolist())
             gini_dict[user][str_len].extend(gini_vals.flatten().tolist())
             bias_dict[user][str_len].extend(bias_vals.flatten().tolist())
             
-            #frac_dict[user][str(length)] /= float(len(days_list)) if len(days_list) > 0 else 1
     return user_chunk, frac_dict, friends_dict, frac_tweets_dict, gini_dict, bias_dict
 
-'''
-try:
-    with open('{}/wfw_dict.pkl'.format(data_dir), 'rb') as fp:
-        wfw_dict = pkl.load(fp)
-except Exception as e:
-    wfw_dict = {user:who_follows_who[who_follows_who['id'] == user]['tid'].value_counts().index.tolist() for user in random_sample}
-    with open('{}/wfw_dict.pkl'.format(data_dir), 'wb') as fp:
-        pkl.dump(wfw_dict, fp)
-'''
-
-print(dir())
-
-
-
-#print(wfw_dict[8943])
-#wfw_num_ones = {user:who_follows_who[who_follows_who['id'] == user]['tid'].apply(lambda x: user_map[x]).value_counts() for user in random_sample}
 
 def rewire(goal_corr):
     cur_assignments = assignments
@@ -458,8 +342,8 @@ def rewire(goal_corr):
     posn_mapping = {user:ix for ix, user in enumerate(list_user_map)}
     rev_mapping = {ix: user for ix, user in enumerate(list_user_map)}
 
-    positive_nodes = [rev_mapping[x] for x in np.nonzero(pos_neg_bf)[0]]#{x:0 for x in rev_user_map[1] if x in degrees}#set([node for node,assignment in zip(list_user_map, cur_assignments) if assignment == 1])
-    negative_nodes = [rev_mapping[x] for x in np.nonzero(pos_neg_bf == 0)[0]]#{x:0 for x in rev_user_map[0] if x in degrees}#set([node for node,assignment in zip(list_user_map, cur_assignments) if assignment == 0])
+    positive_nodes = [rev_mapping[x] for x in np.nonzero(pos_neg_bf)[0]]
+    negative_nodes = [rev_mapping[x] for x in np.nonzero(pos_neg_bf == 0)[0]]
     #cur_corr = corr(degree_dist, [*cur_user_map.values()], [*positive_nodes])
     cur_corr = corr(degree_dist, pos_neg_bf, positive_nodes)
 
@@ -476,8 +360,6 @@ def rewire(goal_corr):
         
         #rand_pos = np_rand_choice(list([x for x in positive_nodes]), size=1)[0]
         rand_pos = np_rand_choice([rev_mapping[x] for x in np.nonzero(pos_neg_bf)[0]], size=100000, replace=False)
-        #print("selected pos node")
-        #rand_neg = np_rand_choice(list([x for x in negative_nodes]), size=1)[0]
         rand_neg = np_rand_choice([rev_mapping[x] for x in np.nonzero(pos_neg_bf == 0)[0]], size=100000, replace=False)
         
         degrees_pos = [degree_dist[posn_mapping[x]] for x in rand_pos]
@@ -493,39 +375,14 @@ def rewire(goal_corr):
                 pos_neg_bf[posn_mapping[pos]] = 0
                 pos_neg_bf[posn_mapping[neg]] = 1
 
-                #positive_nodes.pop(pos)
-                #positive_nodes[neg] = 0
-                #negative_nodes[pos] = 0
-                #negative_nodes.pop(neg)
             new_corr = corr(degree_dist, pos_neg_bf, [rev_mapping[x] for x in np.nonzero(pos_neg_bf)[0]])
             delta = new_corr - cur_corr
             cur_corr = new_corr
         
-        '''
-        degree_pos = degree_dist[list_user_map_index(rand_pos)]
-        degree_neg = degree_dist[list_user_map_index(rand_neg)]
-        #print("selected neg node")
-        delta = 0.0
-        if degree_neg > degree_pos:
-            cur_user_map[rand_pos] = 0
-            cur_user_map[rand_neg] = 1
-            #positive_nodes.remove(rand_pos )
-            #negative_nodes.add(rand_pos)
-            #positive_nodes.add(rand_neg)
-            #negative_nodes.remove(rand_neg)
-            positive_nodes.pop(rand_pos)
-            positive_nodes[rand_neg] = 0
-            negative_nodes[rand_pos] = 0
-            negative_nodes.pop(rand_neg)
-            #cur_assignments = [cur_user_map[x] for x in cur_user_map]
-            new_corr = corr(degree_dist, [*cur_user_map.values()], [*positive_nodes])
-            delta = new_corr - cur_corr
-            cur_corr = new_corr
-        '''
+       
         iters += 1
         
         print(cur_corr, delta, iters)
-    #return cur_assignments, cur_user_map, cur_corr
     return cur_user_map.values(), cur_user_map, cur_corr
 
 
@@ -544,9 +401,6 @@ start = float(sys.argv[1])
 end = float(sys.argv[2])
 
 
-for x in dir():
-    print(x, sys.getrefcount(x))
-
 for goal_corr in np.arange(start, end, 0.15):#[0, 0.25, 0.50, 0.75, 1.0]:
 
     assignments, user_map, cor = rewire(goal_corr)
@@ -556,48 +410,21 @@ for goal_corr in np.arange(start, end, 0.15):#[0, 0.25, 0.50, 0.75, 1.0]:
 
     if kind == 'popularity':
         map_deg_friends = {user: sum([degrees_out[fr] if fr in degrees_out else 0.0 for fr in map_friends[user]]) for user in map_friends}
-    folder = '{}/joblib_memmap'.format(data_dir)
-    try:
-        os.mkdir(folder)
-    except FileExistsError:
-        pass
 
-    
-
-    #data_filename_memmap = os.path.join(folder, 'usermap_memmap2')
-    #dump(user_map, data_filename_memmap)
-    #user_map = load(data_filename_memmap, mmap_mode='r')
-
-    #data_filename_memmap = os.path.join(folder, 'mapfriendsscores_memmap2')
-    #dump(map_friends_scores, data_filename_memmap)
-    #map_friends_scores = load(data_filename_memmap, mmap_mode='r')
-
-    #data_filename_memmap = os.path.join(folder, 'assignments_memmap')
-    #dump(assignments, data_filename_memmap)
-    #assignments = load(data_filename_memmap, mmap_mode='r')
-
-    #return user_chunk, frac_dict, friends_dict, frac_tweets_dict, gini_dict, bias_dict
     
     with joblib.parallel_backend(backend="loky"):
         if not loaded_dicts:
-            parallel = joblib.Parallel(verbose=100, n_jobs=15, temp_folder="/nas/home/nbartley/data/")#,require='sharedmem')
+            parallel = joblib.Parallel(verbose=100, n_jobs=15)#,require='sharedmem')
   
             
             user_map_list = np.array_split(np.array(list(random_sample)), 25)
-            #results = Parallel(n_jobs=4)(delayed(job)(user_chunk) for user_chunk in user_map_list)
             
-            #frac_friend_dicts = parallel(delayed(job2)(random_sample[slicer:slicer+500]) for slicer in np.arange(0,1500,500))
             frac_dict = {}
             friends_dict = {}
             frac_tweets_dict = {}
             gini_dict = {}
             bias_dict = {}
-            results = parallel(delayed(job)(#[x for x in gini_dict[user][10] if len(x) >0], \
-                                                    #wfw_dict[user], \
-                                                    #gini_tup[1][user],\
-                                                    #map_friends,\
-                                                    # user_map,\
-                                                                                                user_chunk) for user_chunk in user_map_list)#, stats, seshs, lens in users_with_most_sessions)
+            results = parallel(delayed(job)(user_chunk) for user_chunk in user_map_list)
             try:
                 for user_chnk, frac, frs, frac_tweets, gini, bias in results:
                     frac_dict.update(frac)

@@ -4,42 +4,27 @@ import datetime
 import matplotlib
 import matplotlib.pyplot as plt
 import scipy
+from numpy.random import default_rng
+rng = default_rng()
 
 
-
-data_dir = '/nas/home/nbartley/data/Twitter Bias/Network Data/2014-2015-twitter-seed/indiv_users'
+data_dir = ''
 
 def gen_session_times_user(activity_df, num_per_day):
    activity_df.loc[:,'date_created'] = activity_df['date_created'].apply(lambda x: datetime.datetime.strptime(datetime.datetime.strptime(x, '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d'), '%Y-%m-%d') )
    session_out = []
    days_covered = list(set([   datetime.datetime.strptime(datetime.datetime.strftime(x, '%Y-%m-%d'), '%Y-%m-%d') for x in pd.to_datetime(activity_df['date_created'].values) \
-       if x >= datetime.datetime(2014,3,1) and x <= datetime.datetime(2014,7,9)]))
+       if x >= datetime.datetime(2014,3,1) and x <= datetime.datetime(2014,9,1)]))
    return days_covered
-   for day in sorted(days_covered):
-       activity_day = activity_df[activity_df['date_created'] == day]
-       # from start to finish in sorted order
-           # new session if time since last activity > 30 minutes
-       prev_time = pd.Timestamp(0)#datetime(1970,1,1)
-       #print('day ', day)
-       for action_time in sorted(activity_day['date_created'].values):
-           #print('in loop for ', action_time)
-           duration = action_time - prev_time
-           duration_in_s = pd.Timedelta(duration).total_seconds() 
-           if duration_in_s % 60 >= 30:#if divmod(duration_in_s, 60)[0] >= 30:
-               session_out.append(action_time)
-           prev_time = action_time
-           #print(prev_time)
-   return session_out
+
 
 def job(user):
     collated_tweet_df = pd.read_csv('{}/{}.csv'.format(data_dir, user), index_col=0).sample(frac=1).reset_index(drop=True) 
     activity_df = pd.read_csv('{}/{}_activity.csv'.format(data_dir, user), index_col=0).sample(frac=1).reset_index(drop=True) 
-    #collated_tweet_df['date_created'].fillna(datetime(1970,1,1), inplace=True)
-    #print(collated_tweet_df)
+
     collated_tweet_df['date_created'] = pd.to_datetime(collated_tweet_df['date_created'])
     tweet_dates = np.array([datetime.strftime(x, '%Y-%m-%d') for x in pd.to_datetime(collated_tweet_df['date_created'].values)])
     all_session_times = gen_session_times_user(activity_df, 5)
-    #activity_df['date_created'] = activity_df['date_created'].apply(lambda x: datetime.strptime(x, '%Y-%m-%d %H:%M:%S') )
     activity_df['date_created'].fillna(datetime.datetime(1970,1,1), inplace=True)
     
     num_sessions = len(all_session_times)
@@ -49,11 +34,7 @@ def job(user):
     stats_list = []
     tot_tweets =0
     for session in sorted(all_session_times):
-        #print(collated_tweet_df['date_created'], type(session))
-        #raise Exception
-  
-        #print(tweet_dates == str(session)[:10])
-        #raise Exception
+
         
         mask = tweet_dates == (str(session)[:10])#(collated_tweet_df['date_created'].apply(lambda x: x  - session).astype(int) <= 0 )
         #locator = (collated_tweet_df[mask]['date_created'].apply(lambda x: x - session).astype(int)).abs().argsort()[:session_length]
@@ -89,19 +70,6 @@ def job(user):
 
 def compute_gini(array, ):
     
-    '''total_times_user_seen = [x for x in df_obs.sum(axis=1) if x > 0.]
-    num_users = len(np.unique(df_obs.nonzero()[0]))
-    gini = 0
-    for x_i in total_times_user_seen:
-        for x_j in total_times_user_seen:
-            gini += np.abs(x_i - x_j)
-    
-    #print("gini total before norm: {} len {} sum {}".format(gini, num_users, sum(total_times_user_seen_leah)))
-    
-    gini /= 2 * num_users * sum(total_times_user_seen)
-    
-    return gini'''
-    """Calculate the Gini coefficient of a numpy array."""
     # All values are treated equally, arrays must be 1d:
     array = array.flatten()
     try:
@@ -119,7 +87,6 @@ def compute_gini(array, ):
     # Number of array elements:
     n = array.shape[0]
     # Gini coefficient:
-    #print("n {} sum_array {}".format(n, np.sum(array)))
     if n == 0:
         return np.nan
     else:
@@ -187,38 +154,9 @@ def get_correlation_graph(corr_dicts, users, start, end, kind, corrs):
                 if len(vals_to_plot) == 0:
                     continue
                 nums.extend( [x for x in vals_to_plot if not np.isnan(x) and x >= 0.0] )
-            '''
-            for user in users:
-                if user not in [x[0] for x in frac_tweets_dict]:
-                    continue
-                if len([x[1] for x in frac_tweets_dict if x[0] == user][0]) == 0:
-                    continue
-                user_gini = [x[5][user] for x in frac_tweets_dict if x[0] == user]
-                #print(user_gini)
-                #below for user friends frac tweets per day
-                #length_ginis = [x if x == 0.0 else x.data[0] for x in user_gini[0][str(length)]]
-                length_ginis = [x for x in user_gini[0][str(length)]]
-                if len(length_ginis) == 0:
-                    continue
-                try:
-                    if not isinstance(length_ginis[0], float) and all([np.isnan(x) for x in length_ginis[0]]):
-                        continue
-                except IndexError as e:
-                    print(length_ginis)
-                    raise Exception
-                #print(length_ginis)
-                if isinstance(length_ginis[0], np.float64) or isinstance(length_ginis[0], float):
-                    if not np.isnan(length_ginis[0]) and length_ginis[0] >= 0.0:
-                        nums.append(length_ginis[0])
-                else:
-                    nums.extend([x for x in length_ginis[0] if not np.isnan(x) and x >= 0.0])
-                #nums.extend([x for x  in length_ginis[0] if len(length_ginis[0]) > s1 else ])
-            #print(nums)
-            '''
 
             cur_corr_vals.append((np.mean(nums), scipy.stats.sem(nums)))
             print(scipy.stats.sem(nums))
-        #print([tup[1] for tup in cur_corr_vals])
         axarr.fill_between(x=[corr for corr in corrs], \
                         y1=[tup[0]-tup[1] for tup in cur_corr_vals], \
                         y2=[tup[0]+tup[1] for tup in cur_corr_vals])
@@ -226,10 +164,6 @@ def get_correlation_graph(corr_dicts, users, start, end, kind, corrs):
                 label='length {}'.format(length if length < 1000000 else 'entire', cmap=cmap))
         ctr += 1
         
-        #axarr.errorbar( [0+offset, 0.25+offset, 0.50+offset], [tup[0] for tup in cur_corr_vals], yerr=[tup[1] for tup in cur_corr_vals], marker='x', label='len {}'.format(length))
-        #print(boxes)
-    #axarr.set_title('{}: {} vs Correlation'.format(kind, title), fontsize=24)
-    #axarr.set_xticklabels([str(x) for x in [10, 50, 100, 'all']], fontsize=14)
     axarr.set_xlabel('Correlation', fontsize=20)
     axarr.set_ylabel('{}'.format(ylabel), fontsize=20)
     if val == 5:
@@ -237,12 +171,8 @@ def get_correlation_graph(corr_dicts, users, start, end, kind, corrs):
     axarr.tick_params(axis='both', which='major', labelsize=12)
     plt.legend() 
     return fig, axarr
-    #posn+=0.4
-    ##for item in ['boxes', 'whiskers', 'fliers', 'medians', 'caps']:
-        #plt.setp(bp[item], color=colors[cix])
-    #cix+=1
-from numpy.random import default_rng
-rng = default_rng()
+
+
 
 def get_correlation_graph_bars(corr_dicts, users, start, end, kind, corrs, num_samples):
  
@@ -289,7 +219,6 @@ def get_correlation_graph_bars(corr_dicts, users, start, end, kind, corrs, num_s
                 for x in frac_tweets_dict:
                     temp.update(x)
                 frac_tweets_dict = temp
-                #frac_tweets_dict = [y for x in frac_tweets_dict for y in x]
 
             for sample in range(num_samples):
                 nums = []
@@ -299,7 +228,6 @@ def get_correlation_graph_bars(corr_dicts, users, start, end, kind, corrs, num_s
                         continue
                     
                     vals_to_analyze = frac_tweets_dict[user]
-                    #print(vals_to_analyze)
                     if val < 4:
                         vals_to_plot = [x for x in vals_to_analyze[str(length)][0]]
                     else:
@@ -311,16 +239,13 @@ def get_correlation_graph_bars(corr_dicts, users, start, end, kind, corrs, num_s
 
                 cur_corr_vals[corr].append((np.mean(nums), scipy.stats.sem(nums)))
             print(scipy.stats.sem(nums))
-        #print([tup[1] for tup in cur_corr_vals])
         axarr.fill_between(x=[corr for corr in corrs], \
                         y1=[np.mean([x[0] for x in cur_corr_vals[corr]])-scipy.stats.sem([x[0] for x in cur_corr_vals[corr]]) for corr in cur_corr_vals], \
                         y2=[np.mean([x[0] for x in cur_corr_vals[corr]])+scipy.stats.sem([x[0] for x in cur_corr_vals[corr]]) for corr in cur_corr_vals])
         axarr.plot([corr for corr in corrs], [np.mean([x[0] for x in cur_corr_vals[corr]]) for corr in cur_corr_vals], marker=markers[ctr], \
                 label='length {}'.format(length if length < 1000000 else 'entire', cmap=cmap))
         ctr += 1
-        
-        #axarr.errorbar( [0+offset, 0.25+offset, 0.50+offset], [tup[0] for tup in cur_corr_vals], yerr=[tup[1] for tup in cur_corr_vals], marker='x', label='len {}'.format(length))
-        #print(boxes)
+
     axarr.set_title('{}: {} vs Correlation - Resampled'.format(kind, title), fontsize=24)
     #axarr.set_xticklabels([str(x) for x in [10, 50, 100, 'all']], fontsize=14)
     axarr.set_xlabel('Correlation', fontsize=20)
@@ -328,8 +253,5 @@ def get_correlation_graph_bars(corr_dicts, users, start, end, kind, corrs, num_s
     axarr.tick_params(axis='both', which='major', labelsize=12)
     plt.legend() 
     return fig, axarr
-    #posn+=0.4
-    ##for item in ['boxes', 'whiskers', 'fliers', 'medians', 'caps']:
-        #plt.setp(bp[item], color=colors[cix])
-    #cix+=1
+
     
