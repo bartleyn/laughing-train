@@ -128,13 +128,6 @@ if condition == 'nnmf' or condition == 'neural' or condition == 'logit':
     rt_tracker = lil_matrix(coo_matrix(matrix))
     
 
-    #usrs = rts['user_id'].value_counts().index
-    #nums = [rts[rts['user_id'] == usr]['original_user_id'].value_counts() for usr in usrs]
-    #rt_tracker[usrs, [rts[rts['user_id'] == usr]['original_user_id'].values.tolist() for usr in usrs]] += 1
-    print("usrs ", usrs)
-    print("matrix ", matrix)
-    print("rt tracker shape, ", rt_tracker.shape)
-    #print(get logistic regression in )
     if condition == 'nnmf':
         nmf_W = nmf_model.fit_transform(rt_tracker)
         nmf_H = nmf_model.components_
@@ -195,19 +188,6 @@ if condition == 'nnmf' or condition == 'neural' or condition == 'logit':
         print(f'Test Loss: {test_loss}, Test AUC: {test_auc}')
 
 
-'''
-
-
-'''
-
-
-'''
-    nmf_model = NMF(n_components=4, init='random', random_state=0)
-    self.W = nmf_model.fit_transform(self.likes_tracker)
-    self.H = nmf_model.components_
-    self.rec = self.W.dot(self.H)
-    likes_tracker == 5599 x |G| mat
-'''
 global model_bk
 model_bk = None
 def job(user):
@@ -337,16 +317,6 @@ def job(user):
         if model_bk is None:
             model_bk = model
 
-        # Predicting and evaluating the model
-        #y_pred = model.predict(X_test)
-        #try:
-        #    accuracy = accuracy_score(y_test, y_pred)
-        #    roc_auc = roc_auc_score(y_test, y_pred)
-
-        #    print(f"Accuracy: {accuracy}")
-        #    print(f"ROC-AUC: {roc_auc}")
-
-        # Assuming 'new_tweets' has the same structure as your training data
 
 
         # Make predictions
@@ -371,29 +341,7 @@ def job(user):
 
         
 
-
-    #ranked_tweets_user = pd.read_csv('{}/{}_predictions.csv'.format(data_dir, user), index_col=0, dtype={'RT':str}).sort_values(by=['RT', 'Tweet'], ascending=False)
-
-    #collated_tweet_df['tweet_id'] = collated_tweet_df['tweet_id'].apply(lambda x: x.strip("'\n"))
-    #df.index.intersection(row_indices)
-    '''
-    print(len([x for x in ranked_tweets_user['Tweet'].apply(lambda x: int(x.strip("'\n"))) if x in collated_tweet_df['tweet_id']]))
-    collated_tweet_df = collated_tweet_df.set_index('tweet_id')
-    try:
-        collated_tweet_df2 = collated_tweet_df.loc[[x for x in ranked_tweets_user['Tweet'].apply(lambda x: int(x.strip("'\n"))).values if x in collated_tweet_df.index]]#collated_tweet_df.loc[ranked_tweets_user['Tweet'].apply(lambda x: int(x.strip("'\n")))]
-        collated_tweet_df2.reset_index(inplace=True)
-    except pd.errors.InvalidIndexError:
-        print("user {} failed".format(user))
-        return (user, None, None)
-
-    print(len([x for x in ranked_tweets_user['Tweet'] if x in collated_tweet_df.index]))
-    print(collated_tweet_df2['tweet_id'].value_counts())
-    #.apply(lambda x: int(x.strip("'")))
-    #collated_tweet_df = collated_tweet_df[collated_tweet_df['tweet_id'].isin(ranked_tweets_user)]
-    '''
-
-    #collated_tweet_df['date_created'].fillna(datetime(1970,1,1), inplace=True)
-    #print(collated_tweet_df)
+  
     
     all_session_times = au.gen_session_times_user(activity_df, 5)
     #activity_df['date_created'] = activity_df['date_created'].apply(lambda x: datetime.strptime(x, '%Y-%m-%d %H:%M:%S') )
@@ -410,17 +358,10 @@ def job(user):
 
         if session < datetime.datetime(2014,3,1) or session > datetime.datetime(2014,7,9):
             continue
-        #print(collated_tweet_df['date_created'], type(session))
-        #raise Exception
-  
-        #print(tweet_dates == str(session)[:10])
-        #raise Exception
-        
+
 
         #mask = (tweet_dates <= (str(session)[:10])) & (tweet_dates >= (str(session - timedelta(days=7))[:10]))# in [str(x)[:10] for x in [session - timedelta(days=num) for num in range(1,5)]]
         mask = tweet_dates == (str(session)[:10])#(collated_tweet_df['date_created'].apply(lambda x: x  - session).astype(int) <= 0 )
-        #locator = (collated_tweet_df[mask]['date_created'].apply(lambda x: x - session).astype(int)).abs().argsort()[:session_length]
-        #sesh_df = collated_tweet_df.iloc[locator]
         if (isinstance(mask, bool)): 
             continue
         sesh_df = collated_tweet_df2[mask].copy()
@@ -463,9 +404,6 @@ import joblib
 
 with joblib.parallel_backend(backend="loky"):
     parallel = Parallel(verbose=100, n_jobs=20,  temp_folder="/nas/home/nbartley/data/" )
-    #for ct_df, ct_df2, user in results:
-    #    ct_df.to_csv('{}/{}.csv'.format(data_dir, user))
-    #    ct_df2.to_csv('{}/{}_activity.csv'.format(data_dir, user))
 
 
     user_data = parallel(delayed(job)(user) for user in users_with_most_sessions)#, stats, seshs, lens in users_with_most_sessions)
@@ -532,22 +470,7 @@ with joblib.parallel_backend(backend="loky"):
                         print(e, "act_df shape {} act_df size {} mask, cur_day size {} num_obs_tweets {} ".format(\
                             act_df.shape, act_df.size, act_df[mask, cur_day].size,  num_obs_tweets.size))
                         pass
-                    #raise Exception
-                    '''
-                    for user_obs in friends:#act_df['user_id'].value_counts().index:
-                        #num_obs_tweets = leah_df[leah_df['user_seen'] == user_obs]['obs_likes'].sum()
-                        #num_obs_tweets = len(leah_df[leah_df['user_seen'] == user_obs].index)
-
-                        #every day/session has only  unique tweet ids since they're divded by day
-                        num_obs_tweets = len(session[session['user_id'] == user_obs].index)
-                        
-                        
-                        try:
-                            act_df[friends.index(user_obs), cur_day] += num_obs_tweets
-                        except KeyError:
-                            print(user_obs, " leah1")
-                            pass
-                    '''
+ 
 
                     try:
                         gini = au.compute_gini(np.array([x for x in act_df[:,cur_day].sum(axis=1) if x > 0. ]))
@@ -569,14 +492,9 @@ with joblib.parallel_backend(backend="loky"):
     import joblib
     import scipy
 
-    #with joblib.parallel_backend(backend="loky"):
-    #parallel = Parallel(verbose=100, n_jobs=8, require='sharedmem', temp_folder="/nas/home/nbartley/data/")#,require='sharedmem')
-    #users_to_process = user_data[:750]#[user for user in seeduser['user_id'].values][:1000]#if int(user) >= 14078815]
-    #qrtt = job(users_to_process[0])
+
     results = parallel(delayed(job)(user, frns) for user, frns in zip(users_to_process, user_friends))
-    #for ct_df, ct_df2, user in results:
-    #    ct_df.to_csv('{}/{}.csv'.format(data_dir, user))
-    #    ct_df2.to_csv('{}/{}_activity.csv'.format(data_dir, user))
+
 
 
 gini_dict = {}
