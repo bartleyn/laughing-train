@@ -21,7 +21,7 @@ import logging
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
 
 
-data_dir = '/nas/home/nbartley/data/Twitter Bias/Network Data/2014-2015-twitter-seed/indiv_users'
+data_dir = ''
 seeduser = pd.read_csv('{}/../seeduser.csv'.format(data_dir), header=0)
 seeduser['screen_name'] = seeduser['screen_name'].apply(lambda x: x[1:-1])
 
@@ -40,8 +40,7 @@ if not split_done:
         gini_tup = pkl.load(fp)
     #random_sample = list(gini_tup[1].keys())#np.random.choice(list(gini_tup[1].keys()), replace=False, size=1000))
 
-
-if kind == 'popularity' or kind == 'random' or kind == 'revchron':
+if kind == 'popularity' or kind == 'random' or kind == 'revchron' or kind == 'logit' or kind == 'nnmf':
     attn_func = lambda edge: (degrees_out[edge[1]] / max(1, map_deg_friends[edge[0]])) if edge[1] in degrees_out and edge[0] in map_deg_friends else 0.0
 elif kind == 'random' or kind == 'revchron':# or kind=='popularity':
     attn_func = lambda edge: 1.0/degrees_in[edge[0]]
